@@ -51,16 +51,16 @@ public class JavaPomodoroApp {
                 btnListener,
                 winListener,
                 new ConfigCallback() {
-                    @Override
-                    public Map<String, Integer> getConfigMap() {
-                        return configMap;
-                    }
-                }, new FocusLogListener() {
-                    @Override
-                    public int getLoggedMinutes() {
-                        return focusDB.getLoggedMinutes();
-                    }
-                });
+            @Override
+            public Map<String, Integer> getConfigMap() {
+                return configMap;
+            }
+        }, new FocusLogListener() {
+            @Override
+            public int getLoggedMinutes() {
+                return focusDB.getLoggedMinutes();
+            }
+        });
     }
 
     private static void generateTimeSequence() {
@@ -91,24 +91,24 @@ public class JavaPomodoroApp {
                 workTime,
                 timeUpdateListener,
                 new FocusLogUpdater() {
-                    @Override
-                    public void logSession(int duration) {
-                        focusDB.logSession(duration);
-                    }
-                },
+            @Override
+            public void logSession(int duration) {
+                focusDB.logSession(duration);
+            }
+        },
                 // ========== NEW CALLBACK ==========
                 new SessionCompleteListener() {
-                    @Override
-                    public void sessionComplete() {
-                        // remove the one that just finished
-                        timeQueue.poll();
-                        if (!timeQueue.isEmpty()) {
-                            int next = timeQueue.peek();
-                            jpaTimer.updateDuration(next);
-                            jpaTimer.startTimer();
-                        }
-                    }
-                });
+            @Override
+            public void sessionComplete() {
+                // remove the one that just finished
+                timeQueue.poll();
+                if (!timeQueue.isEmpty()) {
+                    int next = timeQueue.peek();
+                    jpaTimer.updateDuration(next);
+                    jpaTimer.startTimer();
+                }
+            }
+        });
     }
 
     public static void startTimer() {
@@ -239,8 +239,6 @@ class MyWindowListener extends JFrame implements WindowListener {
 
     @Override
     public void windowClosed(WindowEvent e) {
-        // refresh logged minutes in settings window
-
     }
 
     @Override

@@ -49,8 +49,6 @@ public class FocusDB {
                 int id = rs.getInt("id");
                 durationMinutes += rs.getInt("duration_minutes");
                 String timestamp = rs.getString("timestamp");
-                System.out
-                        .println("ID: " + id + ", Duration: " + durationMinutes + " minutes, Timestamp: " + timestamp);
             }
             return durationMinutes;
         } catch (SQLException ex) {
