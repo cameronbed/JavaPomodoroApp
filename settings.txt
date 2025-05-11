@@ -1,0 +1,4 @@
+longBreakTime=15
+shortBreakTime=5
+workTime=25
+rounds=2
