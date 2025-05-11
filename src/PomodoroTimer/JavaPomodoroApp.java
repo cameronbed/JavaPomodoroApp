@@ -4,15 +4,14 @@
  */
 package PomodoroTimer;
 
-import java.sql.*;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.*;
-import java.awt.*;
 import java.awt.event.*;
-import java.util.Scanner;
+// Files
 import java.io.*;
+
+// Queue
+import java.util.Queue;
 
 /**
  *
@@ -20,128 +19,177 @@ import java.io.*;
  */
 public class JavaPomodoroApp {
 
+    // ============= Settings
+    static JPASettingsWindow jpaSettingsWindow;
+    // ============== Timer
+    static JPATimerWindow jpaTimerWindow;
+    static JPATimer jpaTimer;
+
+    // ============= Interface
+    static TimeUpdateListener timeUpdateListener;
+
+    // ActionListeners
+    static ButtonListener btnListener = new ButtonListener();
+    static MyWindowListener winListener = new MyWindowListener();
+
+    // Queue
+    static Queue<Integer> timeQueue = new LinkedList<>();
+
+    // Settings HashMap
+    static Map<String, Integer> configMap = new HashMap<>();
+
+    // Databse
+    static FocusDB focusDB;
+
     /**
      * @param args the command line arguments
      */
-    // ============= Main
-    static JFrame mainFrame;
-
-    // ============= Settings
-    static JPASettings jpaSettings;
-    static JPanel settingsPanel;
-    // Buttons
-    static JButton launchTimerBtn;
-    static JButton saveSettingsBtn;
-    // Time Spinner
-    static JSpinner timeSpinner;
-    static SpinnerNumberModel timeNumberModel;
-    // Short Break Spinner
-    static JSpinner shortBreakSpinner;
-    static SpinnerNumberModel shortBreakNumberModel;
-    // Long Break Spinner
-    static JSpinner longBreakSpinner;
-    static SpinnerNumberModel longBreakNumberModel;
-
-    // ============== Timer
-    static JFrame timerMainFrame;
-    static JPanel timerMainPanel;
-    static JPATime jpaTime;
-    static JButton startTimerBtn;
-    static JButton pauseTimerBtn;
-    static JButton stopTimerBtn;
-    static JLabel timerTimeLabel;
-
-    static int setTimerTime = 25;
-    static int setShortBreakTime = 5;
-    static int setLongBreakTime = 15;
-    static int setRounds = 2;
-    static ButtonListener btnListener = new ButtonListener();
-
     public static void main(String[] args) {
-        // defaults
-
-        // =========== Panels
-        // Settings
-        settingsPanel = new JPanel();
-        settingsPanel.setLayout(new GridLayout(10, 10));
-
-        // ========= Buttons
-        // Luanch Timer
-        launchTimerBtn = new JButton("Launch Timer");
-        launchTimerBtn.addActionListener(btnListener);
-        settingsPanel.add(launchTimerBtn);
-        // Save Settings
-        saveSettingsBtn = new JButton("Save Settings");
-        saveSettingsBtn.addActionListener(btnListener);
-        settingsPanel.add(saveSettingsBtn);
-
-        // ======== Spinners
-        // Timer Time
-        timeNumberModel = new SpinnerNumberModel(setTimerTime, 1, 60, 1);
-        timeSpinner = new JSpinner(timeNumberModel);
-        settingsPanel.add(timeSpinner);
-        // Short Break Time
-        shortBreakNumberModel = new SpinnerNumberModel(setShortBreakTime, 1, 60, 1);
-        shortBreakSpinner = new JSpinner(shortBreakNumberModel);
-        settingsPanel.add(shortBreakSpinner);
-        // Long Break Time
-        longBreakNumberModel = new SpinnerNumberModel(setLongBreakTime, 1, 60, 1);
-        longBreakSpinner = new JSpinner(longBreakNumberModel);
-        settingsPanel.add(longBreakSpinner);
-
-        // ========== Class Objects
-        // Settings Object
-        jpaSettings = new JPASettings();
-
-        // ========== Frames
-        // Main
-        mainFrame = new JFrame("JavaPomodoroApp");
-        mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        mainFrame.setSize(400, 400);
-        mainFrame.add(settingsPanel);
-        mainFrame.setVisible(true);
-
-        System.out.println("This is the end of main");
+        readSettings();
+        focusDB = new FocusDB();
+        jpaSettingsWindow = new JPASettingsWindow(
+                btnListener,
+                winListener,
+                new ConfigCallback() {
+                    @Override
+                    public Map<String, Integer> getConfigMap() {
+                        return configMap;
+                    }
+                }, new FocusLogListener() {
+                    @Override
+                    public int getLoggedMinutes() {
+                        return focusDB.getLoggedMinutes();
+                    }
+                });
     }
 
-    public static void LaunchTimer(int time, int shortBreak, int longBreak, int rounds) {
-        System.out.println("Timer Launched");
-
-        // Timer Object
-        jpaTime = new JPATime();
-
-        // Timer Frame
-        timerMainFrame = new JFrame("JPA Timer");
-        timerMainFrame.setSize(200, 200);
-
-        // Timer Panel
-        timerMainPanel = new JPanel();
-        timerMainPanel.setLayout(new GridLayout(10, 10));
-        timerMainFrame.add(timerMainPanel);
-
-        // Window Listener
-        MyWindowListener WinListener = new MyWindowListener();
-        timerMainFrame.addWindowListener(WinListener);
-
-        // Timer Time
-        timerTimeLabel = new JLabel("<HTML><font SIZE=24>" + time);
-        timerMainPanel.add(timerTimeLabel);
-
-        // Buttons
-        startTimerBtn = new JButton("Start");
-        pauseTimerBtn = new JButton("Pause");
-        stopTimerBtn = new JButton("Stop");
-
-        startTimerBtn.addActionListener(btnListener);
-        pauseTimerBtn.addActionListener(btnListener);
-        stopTimerBtn.addActionListener(btnListener);
-
-        timerMainPanel.add(startTimerBtn);
-        timerMainPanel.add(pauseTimerBtn);
-        timerMainPanel.add(stopTimerBtn);
-
-        timerMainFrame.setVisible(true);
+    private static void generateTimeSequence() {
+        timeQueue.clear();
+        int work = configMap.get("workTime");
+        int shortBreak = configMap.get("shortBreakTime");
+        int longBreak = configMap.get("longBreakTime");
+        int rounds = configMap.get("rounds");
+        for (int i = 1; i <= rounds; i++) {
+            timeQueue.add(work);
+            if (i < rounds) {
+                timeQueue.add(shortBreak);
+            } else {
+                timeQueue.add(longBreak);
+            }
+        }
     }
+
+    public static void launchTimer() {
+        getSpinnersConfig();
+        generateTimeSequence();
+        int workTime = timeQueue.peek();
+
+        jpaTimerWindow = new JPATimerWindow(btnListener, winListener);
+        timeUpdateListener = jpaTimerWindow;
+
+        jpaTimer = new JPATimer(
+                workTime,
+                timeUpdateListener,
+                new FocusLogUpdater() {
+                    @Override
+                    public void logSession(int duration) {
+                        focusDB.logSession(duration);
+                    }
+                },
+                // ========== NEW CALLBACK ==========
+                new SessionCompleteListener() {
+                    @Override
+                    public void sessionComplete() {
+                        // remove the one that just finished
+                        timeQueue.poll();
+                        if (!timeQueue.isEmpty()) {
+                            int next = timeQueue.peek();
+                            jpaTimer.updateDuration(next);
+                            jpaTimer.startTimer();
+                        }
+                    }
+                });
+    }
+
+    public static void startTimer() {
+        if (!jpaTimer.isRunning()) {
+            new Thread(jpaTimer).start();
+            Thread.currentThread().setPriority(10);
+        }
+        jpaTimer.startTimer();
+    }
+
+    public static void writeSettings() {
+        getSpinnersConfig();
+
+        try (PrintWriter writer = new PrintWriter(new File("settings.txt"))) {
+            for (Map.Entry<String, Integer> entry : configMap.entrySet()) {
+                writer.println(entry.getKey() + "=" + entry.getValue());
+            }
+        } catch (FileNotFoundException ex) {
+            System.out.println("Error saving settings: " + ex.getMessage());
+        }
+    }
+
+    public static void readSettings() {
+        try (Scanner scanner = new Scanner(new File("settings.txt"))) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                String[] parts = line.split("=");
+                if (parts.length == 2) {
+                    configMap.put(parts[0], Integer.parseInt(parts[1]));
+                }
+            }
+        } catch (FileNotFoundException ex) {
+            System.out.println("Settings file not found. Using default values.");
+        }
+    }
+
+    public static void getSpinnersConfig() {
+        configMap.put("workTime", (Integer) JPASettingsWindow.workTimeSpinner.getValue());
+        configMap.put("shortBreakTime", (Integer) JPASettingsWindow.shortBreakTimeSpinner.getValue());
+        configMap.put("longBreakTime", (Integer) JPASettingsWindow.longBreakTimeSpinner.getValue());
+        configMap.put("rounds", (Integer) JPASettingsWindow.roundsSpinner.getValue());
+    }
+
+    public static void clearLog() {
+        int result = JOptionPane.showConfirmDialog(
+                null,
+                "Yikes. Are you sure you want to clear all log history?\nThis action cannot be undone.",
+                "Confirm Clear History",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (result == JOptionPane.YES_OPTION) {
+            focusDB.clearFocusHistory();
+            JPASettingsWindow.historyLabel.setText("Logged Time: 0");
+            JOptionPane.showMessageDialog(null, "History cleared successfully.");
+        }
+    }
+}
+
+interface TimeUpdateListener {
+
+    public void updateTime(long timeLeftMs, long timeRan);
+}
+
+interface ConfigCallback {
+
+    Map<String, Integer> getConfigMap();
+}
+
+interface FocusLogListener {
+
+    int getLoggedMinutes();
+}
+
+interface FocusLogUpdater {
+
+    void logSession(int duration);
+}
+
+interface SessionCompleteListener {
+
+    void sessionComplete();
 }
 
 class ButtonListener implements ActionListener {
@@ -150,16 +198,39 @@ class ButtonListener implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         JButton buttonPressed = (JButton) e.getSource();
 
-        if (buttonPressed == JavaPomodoroApp.launchTimerBtn) {
-            JavaPomodoroApp.LaunchTimer(JavaPomodoroApp.setTimerTime, JavaPomodoroApp.setShortBreakTime, JavaPomodoroApp.setLongBreakTime, JavaPomodoroApp.setRounds);
-        } else if (buttonPressed == JavaPomodoroApp.saveSettingsBtn) {
-            System.out.println("Save Settings Button Pressed");
-        } else if (buttonPressed == JavaPomodoroApp.startTimerBtn) {
-            System.out.println("Start Timer Button Pressed");
-        } else if (buttonPressed == JavaPomodoroApp.pauseTimerBtn) {
-            System.out.println("Pause Timer Button Pressed");
-        } else if (buttonPressed == JavaPomodoroApp.stopTimerBtn) {
-            System.out.println("Stop Timer Button Pressed");
+        if (buttonPressed == JPASettingsWindow.launchTimerBtn) {
+            JavaPomodoroApp.launchTimer();
+
+        } else if (buttonPressed == JPASettingsWindow.saveSettingsBtn) {
+            // System.out.println("Button: Save Settings Button Pressed");
+            JavaPomodoroApp.writeSettings();
+
+        } else if (buttonPressed == JPATimerWindow.startTimerBtn) { // startTimer
+            // System.out.println("Button: Start Timer Button Pressed");
+            JavaPomodoroApp.startTimer();
+
+        } else if (buttonPressed == JPATimerWindow.pauseTimerBtn) {
+            // System.out.println("Button: Pause Timer Button Pressed");
+            JavaPomodoroApp.jpaTimer.pauseTimer();
+
+        } else if (buttonPressed == JPATimerWindow.stopTimerBtn) {
+            // System.out.println("Button: Stop Timer Button Pressed");
+            JavaPomodoroApp.jpaTimer.stopTimer();
+
+        } else if (buttonPressed == JPATimerWindow.viewSwitchBtn) {
+            // System.out.println("Button: View Toggle Button Pressed");
+            JavaPomodoroApp.jpaTimerWindow.toggleView();
+
+        } else if (buttonPressed == JPASettingsWindow.loadSettingsBtn) {
+            // System.out.println("Button: Load Settings Button Pressed");
+            JavaPomodoroApp.readSettings();
+
+        } else if (buttonPressed == JPASettingsWindow.rstHistoryBtn) {
+            // System.out.println("Button: Reset History Button Pressed");
+            JavaPomodoroApp.clearLog();
+        } else if (buttonPressed == JPATimerWindow.skipButton) {
+            // System.out.println("Button: Skip Button Pressed");
+            JavaPomodoroApp.jpaTimer.skipSession();
         }
     }
 }
@@ -168,57 +239,38 @@ class MyWindowListener extends JFrame implements WindowListener {
 
     @Override
     public void windowClosed(WindowEvent e) {
-        System.out.println("Timer Window Closed");
+        // refresh logged minutes in settings window
+
     }
 
     @Override
     public void windowClosing(WindowEvent e) {
-        System.out.println("Timer Window Closing");
+        dispose();
+        if (JavaPomodoroApp.jpaTimer != null) {
+            JavaPomodoroApp.jpaTimer.stopTimer();
+            Thread.currentThread().interrupt();
+        }
+        JPASettingsWindow.historyLabel.setText(
+                "Logged Minutes: " + JavaPomodoroApp.focusDB.getLoggedMinutes());
     }
 
     @Override
     public void windowActivated(WindowEvent e) {
-        System.out.println("Timer Window Activated");
     }
 
     @Override
     public void windowDeactivated(WindowEvent e) {
-        System.out.println("Timer Window Deactiavated");
     }
 
     @Override
     public void windowDeiconified(WindowEvent e) {
-        System.out.println("Timer Window Deiconified");
     }
 
     @Override
     public void windowIconified(WindowEvent e) {
-        System.out.println("Timer Window Iconified");
     }
 
     @Override
     public void windowOpened(WindowEvent e) {
-        System.out.println("Timer Window Opened");
     }
-}
-
-class JPATime {
-
-    long unixTime = Calendar.getInstance().getTime().getTime();
-    int ticks = 0;
-
-    public static void startTime(int duration) {
-        System.out.println("Time Started");
-    }
-
-    public static void stopTime() {
-        System.out.println("Time stoped");
-    }
-
-    public static void pauseTime() {
-        System.out.println("Time paused");
-    }
-}
-
-class JPASettings {
 }
